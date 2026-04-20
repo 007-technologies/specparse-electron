@@ -71,10 +71,18 @@ echo "  (This takes 3-8 min. prebuild script embeds your API key.)"
 
 rm -rf release/
 
+# Pass the API key via electron-builder's extraMetadata flag. The key flows:
+#   env var → CLI --extraMetadata.anthropicKey → injected into the asar-bundled
+#   package.json (inside the .app / .exe). It never touches a source file on disk.
+# main.js reads it at runtime via require('./package.json').anthropicKey.
+node build/prepare-build.js
+
+EXTRA_META="-c.extraMetadata.anthropicKey=$ANTHROPIC_API_KEY"
+
 if [ $HAS_WINE -eq 1 ]; then
-  npm run build
+  npx electron-builder --mac --win $EXTRA_META
 else
-  npm run build:mac
+  npx electron-builder --mac $EXTRA_META
 fi
 
 ok "Build complete — artifacts in release/"
