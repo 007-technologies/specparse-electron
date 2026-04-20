@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+  <title>SpecParse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="splashScreen" class="splash">
+  <div class="splash-grid"></div>
+  <div class="splash-glow"></div>
+  <div class="splash-content">
+    <div class="splash-logo"><div class="splash-logo-icon">SP</div></div>
+    <div class="splash-brand">
+      <div class="splash-company">SCOTT + REID</div>
+      <div class="splash-company-sub">GENERAL CONTRACTORS</div>
+      <div class="splash-divider"></div>
+      <div class="splash-app">SpecParse</div>
+      <div class="splash-app-sub">Submittal Generator</div>
+    </div>
+    <div class="splash-dots" id="splashDots"><span></span><span></span><span></span></div>
+    <button class="splash-continue d-none" id="splashContinue">Click to continue</button>
+  </div>
+  <div class="splash-footer">
+    <div class="footer-top">Powered by <span class="footer-007">007 Technologies</span></div>
+    <div class="footer-spectre">SPECTRE PROJECT</div>
+  </div>
+</div>
+
+<div class="titlebar"><div class="titlebar-drag"></div></div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">SP</div>
+      <div class="logo-text">
+        <div class="logo-name">SpecParse</div>
+        <div class="logo-sub">Submittal Generator</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">WORKFLOW</div>
+      <a class="nav-item active" data-view="upload">Upload Spec</a>
+      <a class="nav-item disabled" id="navProcess" data-view="process">Generate</a>
+      <a class="nav-item disabled" id="navReview" data-view="review">Review</a>
+      <a class="nav-item disabled" id="navResult" data-view="result">Download</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-version" id="aboutTrigger">SpecParse v1.0</div>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <div class="view active" id="viewUpload">
+      <div class="view-header">
+        <h1>Upload Specification Book</h1>
+        <p>Drop your project manual PDF to generate a submittal log automatically.</p>
+      </div>
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-title">Drop your PDF here</div>
+        <div class="drop-sub">or</div>
+        <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+        <input type="file" id="fileInput" accept=".pdf" style="display:none" />
+      </div>
+      <div class="file-selected d-none" id="fileSelected">
+        <div class="file-info">
+          <div class="file-name" id="selectedFileName"></div>
+          <div class="file-size" id="selectedFileSize"></div>
+        </div>
+        <button class="file-clear" id="clearFile">&#10005;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project Name</label>
+        <input type="text" class="form-input" id="projectName" placeholder="e.g. DT KSW04 - Garden City" />
+        <div class="form-hint">Used as the sheet name in the Excel output</div>
+      </div>
+      <button class="btn btn-success btn-full" id="generateBtn" disabled>Generate Submittal Log</button>
+
+      <div class="recent-section d-none" id="recentSection">
+        <div class="recent-label">Recent Projects</div>
+        <div class="recent-list" id="recentList"></div>
+      </div>
+    </div>
+
+    <div class="view" id="viewProcess">
+      <div class="view-header">
+        <h1>Analyzing Spec Book</h1>
+        <p>Reading each section and identifying required submittals.</p>
+      </div>
+      <div class="progress-card">
+        <div class="progress-header">
+          <div class="progress-message" id="progressSection">Starting…</div>
+          <div class="progress-percent" id="progressPercent">0%</div>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-stats">
+          <span id="progressCount"></span>
+          <span id="progressEta" class="progress-eta"></span>
+        </div>
+      </div>
+      <div class="section-log-wrap">
+        <div class="section-log-label">Activity</div>
+        <div class="section-log" id="sectionLog"></div>
+      </div>
+    </div>
+
+    <div class="view" id="viewReview">
+      <div class="view-header">
+        <h1>Review Submittals</h1>
+        <p id="reviewSubtitle">Check and edit each row before exporting.</p>
+      </div>
+      <div class="review-toolbar">
+        <div class="review-count" id="reviewCount"></div>
+        <div class="review-actions">
+          <button class="btn btn-ghost btn-sm" id="selectAllBtn">Select All</button>
+          <button class="btn btn-ghost btn-sm" id="selectNoneBtn">Select None</button>
+          <button class="btn btn-ghost btn-sm" id="addRowBtn">+ Add Row</button>
+        </div>
+      </div>
+      <div class="review-table-wrap">
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th class="col-drag"></th>
+              <th class="col-check"><input type="checkbox" id="masterCheck" checked /></th>
+              <th class="col-section">Section</th>
+              <th class="col-number">Sub. No.</th>
+              <th class="col-title">Title / Description</th>
+              <th class="col-type">Type</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="reviewBody"></tbody>
+        </table>
+      </div>
+      
+        <!-- Query Bar -->
+        <div class="query-bar" id="queryBar">
+          <div class="query-header" id="queryToggle">
+            <span>Ask a question about this spec</span>
+            <span class="query-chevron" id="queryChevron">&#9650;</span>
+          </div>
+          <div class="query-body" id="queryBody">
+            <div class="query-input-row">
+              <input type="text" id="queryInput" placeholder="Ask anything about this spec..." />
+              <button id="querySubmit" class="btn-query-arrow" title="Ask"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#265C30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button id="queryClear" class="btn-query-clear" title="Clear" style="display:none">&times;</button>
+            </div>
+            <div class="query-response" id="queryResponse" style="display:none"></div>
+          </div>
+        </div>
+        <div class="review-footer">
+        <button class="btn btn-ghost" id="backToUploadBtn">Start Over</button>
+        <button class="btn btn-success btn-lg" id="confirmBtn">Export to Excel</button>
+      </div>
+    </div>
+
+    <div class="view" id="viewResult">
+      <div class="view-header">
+        <h1>Submittal Log Ready</h1>
+        <p>Your Excel file has been generated.</p>
+      </div>
+      <div class="result-card">
+        <div class="result-stats" id="resultStats"></div>
+        <button class="btn btn-success btn-lg" id="downloadBtn">Save Excel File</button>
+        <button class="btn btn-ghost" id="startOverBtn">Process another spec book</button>
+      </div>
+    </div>
+
+    <div class="view" id="viewError">
+      <div class="view-header"><h1>Something went wrong</h1></div>
+      <div class="error-card">
+        <p id="errorMessage"></p>
+        <button class="btn btn-primary" id="retryBtn">Try Again</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="overlay d-none" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>API Key</h2>
+      <button class="modal-close" id="closeSettings">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Anthropic API Key</label>
+      <div class="input-row">
+        <input type="password" class="form-input" id="apiKeyInput" placeholder="sk-ant-api03-..." />
+        <button class="btn btn-ghost btn-sm" id="toggleKey">Show</button>
+      </div>
+      <div class="form-hint">Stored locally on this machine.</div>
+      <div class="key-feedback" id="keyFeedback"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="cancelSettings">Cancel</button>
+      <button class="btn btn-primary" id="saveKey">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay d-none" id="aboutOverlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>About</h2>
+      <button class="modal-close" id="closeAbout">&#10005;</button>
+    </div>
+    <div class="about-body">
+      <div class="about-logo">SP</div>
+      <div class="about-app">SpecParse</div>
+      <div class="about-version">Version 1.0.0</div>
+      <div class="about-company">Scott + Reid General Contractors</div>
+      <div class="about-divider"></div>
+      <div class="about-powered">Powered by 007 Technologies</div>
+      <div class="about-project">SPECTRE PROJECT</div>
+      <button class="btn btn-ghost btn-sm about-api-btn" id="openApiKey">Manage API Key</button>
+    </div>
+  </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+const { contextBridge, ipcRenderer } = require('electron');
+contextBridge.exposeInMainWorld('specparse', {
+  getApiKey:      ()      => ipcRenderer.invoke('get-api-key'),
+  saveApiKey:     (key)   => ipcRenderer.invoke('save-api-key', key),
+  processSpec:    (opts)  => ipcRenderer.invoke('process-spec', opts),
+  exportReviewed: (opts)  => ipcRenderer.invoke('export-reviewed', opts),
+  saveFile:       (src)   => ipcRenderer.invoke('save-file', src),
+  openFileDialog: ()      => ipcRenderer.invoke('open-file-dialog'),
+  onProgress:     (cb)    => ipcRenderer.on('progress', (_, data) => cb(data)),
+  removeProgress: ()      => ipcRenderer.removeAllListeners('progress'),
+  setTitle: (title) => ipcRenderer.invoke('set-title', title),
+  getRecent: () => ipcRenderer.invoke('get-recent'),
+  saveRecent: (project) => ipcRenderer.invoke('save-recent', project),
+    saveProjectSubmittals: (projectName, submittals) => ipcRenderer.invoke('save-project-submittals', { projectName, submittals }),
+    getProjectSubmittals: (projectName) => ipcRenderer.invoke('get-project-submittals', projectName),
+    querySpec: (query, sections, history, submittals) => ipcRenderer.invoke('query-spec', { query, sections, history: history || [], submittals: submittals || [] }),
+    saveProjectSections: (projectName, sections) => ipcRenderer.invoke('save-project-sections', { projectName, sections }),
+    getProjectSections: (projectName) => ipcRenderer.invoke('get-project-sections', projectName),
+    removeRecent: (projectName) => ipcRenderer.invoke('remove-recent', projectName),
+    hasEmbeddedKey: () => ipcRenderer.invoke('has-embedded-key'),
+    getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+});

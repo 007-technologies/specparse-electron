@@ -1,0 +1,65 @@
+{
+  "name": "specparse",
+  "version": "1.0.0",
+  "description": "Scott + Reid SpecParse — construction spec to submittal log generator",
+  "author": "Reed Engleman",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "prebuild": "node build/prepare-build.js",
+    "build": "electron-builder --mac --win",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "test:spec": "node test/runSpec.js"
+  },
+  "build": {
+    "appId": "com.scottandreid.specparse",
+    "productName": "SpecParse",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.icns",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "build/**/*",
+      "node_modules/**/*",
+      "package.json",
+      "!**/*.md",
+      "!.api-key",
+      "!.env*"
+    ]
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "electron-store": "^8.1.0",
+    "exceljs": "^4.4.0",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
