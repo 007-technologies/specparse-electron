@@ -13,9 +13,12 @@ let embeddedConfig = { embeddedApiKey: '', buildDate: '', version: '' };
 try { embeddedConfig = require('./src/embeddedConfig'); } catch (_) { /* dev without prebuild */ }
 
 function getApiKey() {
-  // Priority: baked-in (shipped builds) → .api-key file (dev parity with test harness)
-  // → electron-store (user-entered via Settings).
-  if (embeddedConfig.embeddedApiKey) return embeddedConfig.embeddedApiKey;
+  // Priority:
+  //   1. .api-key file (dev: the freshest user-managed source; matches the test harness)
+  //   2. baked-in embeddedConfig (production .app / .exe — Spencer's build has no .api-key)
+  //   3. electron-store (legacy fallback for users who set it via Settings UI)
+  // The .api-key file wins in dev because when you rotate keys, this is what you update
+  // first — the embedded key only refreshes at build time and would otherwise stay stale.
   try {
     const keyFile = path.join(__dirname, '.api-key');
     if (fs.existsSync(keyFile)) {
@@ -23,6 +26,7 @@ function getApiKey() {
       if (k) return k;
     }
   } catch (_) { /* non-fatal */ }
+  if (embeddedConfig.embeddedApiKey) return embeddedConfig.embeddedApiKey;
   return store.get('apiKey', '');
 }
 
