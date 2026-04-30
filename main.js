@@ -4,6 +4,35 @@ const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
 const store = new Store();
+const { track, trackQuit, trackError } = require('./src/telemetry');
+
+// ── Process-level error tracking ──────────────────────────────────────────────
+// Catches anything that bubbles up uncaught — IPC handler errors are caught by
+// Electron and sent back to the renderer, but anything in the main process
+// outside an IPC context will be captured here.
+process.on('uncaughtException', (err) => {
+  trackError('uncaughtException', err).catch(() => {});
+});
+process.on('unhandledRejection', (reason) => {
+  trackError('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason))).catch(() => {});
+});
+
+// ── App quit telemetry ────────────────────────────────────────────────────────
+// Race trackQuit with a 1.5s timeout so the app never hangs at quit. Worst
+// case we lose the quit event when the network is slow; better than blocking.
+let isQuittingTracked = false;
+app.on('before-quit', async (e) => {
+  if (isQuittingTracked) return;
+  isQuittingTracked = true;
+  e.preventDefault();
+  try {
+    await Promise.race([
+      trackQuit(),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+  } catch (_) { /* swallow */ }
+  app.quit();
+});
 let mainWindow;
 
 // Legacy embedded-config support (pre-v1.0.1 builds). Kept as fallback only.
@@ -74,7 +103,11 @@ ipcMain.handle("save-recent", (event, project) => {
   return true;
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // Telemetry: app launched
+  track('app_launched');
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 ipcMain.handle('query-spec', async (event, { query, sections, history, submittals }) => {
@@ -244,12 +277,16 @@ ipcMain.handle('process-spec', async (event, { filePath, projectName }) => {
   const { extractAllSubmittals } = require('./src/aiExtractor');
   const { buildExcel } = require('./src/excelBuilder');
 
+  // Telemetry: spec uploaded
+  track('spec_uploaded', { fileName: path.basename(filePath || '') });
+
   let sections;
   try {
     sendProgress({ message: 'Extracting text from PDF...', current: 0, total: 0 });
     sections = await extractSections(filePath);
   } catch (err) {
     // pdfParser throws descriptive messages — re-throw so renderer shows them.
+    trackError('process-spec/pdfExtract', err).catch(() => {});
     throw new Error(err.message || 'Failed to read the PDF.');
   }
 
@@ -262,6 +299,7 @@ ipcMain.handle('process-spec', async (event, { filePath, projectName }) => {
     });
   } catch (err) {
     // aiExtractor throws descriptive messages for API/network/rate-limit failures.
+    trackError('process-spec/aiExtract', err).catch(() => {});
     throw new Error(err.message || 'Failed during AI analysis.');
   }
 
@@ -273,6 +311,13 @@ ipcMain.handle('process-spec', async (event, { filePath, projectName }) => {
     sendProgress({ message: 'Building Excel file...', current: 0, total: 0 });
     const outputPath = path.join(os.tmpdir(), `${projectName.replace(/[^a-z0-9]/gi,'_')}_Submittal_Log.xlsx`);
     await buildExcel(submittals, outputPath, projectName);
+
+    // Telemetry: submittals successfully generated
+    track('submittals_generated', {
+      submittalCount: submittals.length,
+      sectionCount: sections.length,
+    });
+
     return { success: true, outputPath, submittals, count: submittals.length, sections: sections.length, sectionData: sections };
   } catch (err) {
     throw new Error('Could not write the Excel file: ' + (err.message || err));
@@ -307,6 +352,10 @@ ipcMain.handle('save-file', async (_, sourcePath) => {
     try {
       fs.copyFileSync(sourcePath, result.filePath);
       shell.showItemInFinder(result.filePath);
+
+      // Telemetry: log exported (user actually saved the file)
+      track('log_exported', { fileName: path.basename(result.filePath) });
+
       return result.filePath;
     } catch (err) {
       throw new Error('Could not save the file: ' + (err.message || err));
@@ -320,4 +369,16 @@ ipcMain.handle('open-file-dialog', async () => {
     filters: [{ name: 'PDF Files', extensions: ['pdf'] }], properties: ['openFile']
   });
   return result.canceled ? null : result.filePaths[0];
+});
+
+// Open an external URL in the user's default browser (allow-listed)
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    if (typeof url !== 'string') throw new Error('Invalid URL');
+    if (!/^(https?:|mailto:)/i.test(url)) throw new Error('Unsupported URL scheme');
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
