@@ -2,70 +2,199 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
-  <title>SpecParse</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'">
+  <title>SpecParse — Scott + Reid</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
+<!-- ============================================================
+     SPLASH OVERLAY — helix + 007 × Scott + Reid co-brand
+     ============================================================ -->
 <div id="splashScreen" class="splash">
-  <div class="splash-grid"></div>
-  <div class="splash-glow"></div>
+
+  <div class="splash-helix-wrap">
+    <svg class="splash-helix" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="splashGrad" x1="0" y1="100" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stop-color="#0F2027"/>
+          <stop offset="25%"  stop-color="#1E3A5F"/>
+          <stop offset="50%"  stop-color="#2D5F8B"/>
+          <stop offset="75%"  stop-color="#4A7FB0"/>
+          <stop offset="100%" stop-color="#E8D5A3"/>
+        </linearGradient>
+      </defs>
+      <g class="splash-helix-lines" stroke="url(#splashGrad)" fill="none" stroke-linecap="round"></g>
+    </svg>
+  </div>
+
+  <div class="splash-smoke-wrap" aria-hidden="true">
+    <div class="splash-smoke splash-smoke-1"></div>
+    <div class="splash-smoke splash-smoke-2"></div>
+  </div>
+
   <div class="splash-content">
-    <div class="splash-logo"><div class="splash-logo-icon">SP</div></div>
-    <div class="splash-brand">
-      <div class="splash-company">SCOTT + REID</div>
-      <div class="splash-company-sub">GENERAL CONTRACTORS</div>
-      <div class="splash-divider"></div>
-      <div class="splash-app">SpecParse</div>
-      <div class="splash-app-sub">Submittal Generator</div>
+    <div class="splash-badge">
+      <span class="splash-dot"></span>
+      <span>File № SR-SP-2026</span>
+    </div>
+
+    <div class="splash-cobrand">
+      <div class="splash-client">
+        <div class="splash-client-name">Scott + Reid</div>
+        <div class="splash-client-sub">General Contractors</div>
+      </div>
+      <div class="splash-cobrand-divider" aria-hidden="true"></div>
+      <div class="splash-product">
+        <div class="splash-product-name">SpecParse</div>
+        <div class="splash-product-sub">Submittal Generator</div>
+      </div>
+    </div>
+
+    <div class="splash-codename">DOSSIER PROJECT</div>
+  </div>
+
+  <div class="splash-bottom-cta" id="splashBottomCta">
+    <div class="splash-line">
+      <div class="splash-bar"></div>
+      <div class="splash-line-accent"></div>
     </div>
     <div class="splash-dots" id="splashDots"><span></span><span></span><span></span></div>
     <button class="splash-continue d-none" id="splashContinue">Click to continue</button>
   </div>
+
   <div class="splash-footer">
-    <div class="footer-top">Powered by <span class="footer-007">007 Technologies</span></div>
-    <div class="footer-spectre">SPECTRE PROJECT</div>
+    <span class="splash-footer-powered">Powered by</span>
+    <a id="splashFooter007" class="splash-footer-007" href="https://007technologies.com">007 Technologies</a>
   </div>
 </div>
 
 <div class="titlebar"><div class="titlebar-drag"></div></div>
 
 <div class="app">
+
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-icon">SP</div>
-      <div class="logo-text">
-        <div class="logo-name">SpecParse</div>
-        <div class="logo-sub">Submittal Generator</div>
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-main">
+        <div class="sidebar-brand-client">Scott + Reid</div>
+        <div class="sidebar-brand-product">SpecParse</div>
       </div>
     </div>
+
     <nav class="sidebar-nav">
-      <div class="nav-label">WORKFLOW</div>
-      <a class="nav-item active" data-view="upload">Upload Spec</a>
-      <a class="nav-item disabled" id="navProcess" data-view="process">Generate</a>
-      <a class="nav-item disabled" id="navReview" data-view="review">Review</a>
-      <a class="nav-item disabled" id="navResult" data-view="result">Download</a>
+      <div class="nav-label">Workflow</div>
+      <a class="nav-item active" data-view="upload">
+        <span class="nav-dot"></span>
+        <span class="nav-num">01</span>
+        <span class="nav-text">Upload Spec</span>
+      </a>
+      <a class="nav-item disabled" id="navProcess" data-view="process">
+        <span class="nav-dot"></span>
+        <span class="nav-num">02</span>
+        <span class="nav-text">Generate</span>
+      </a>
+      <a class="nav-item disabled" id="navReview" data-view="review">
+        <span class="nav-dot"></span>
+        <span class="nav-num">03</span>
+        <span class="nav-text">Review</span>
+      </a>
+      <a class="nav-item disabled" id="navResult" data-view="result">
+        <span class="nav-dot"></span>
+        <span class="nav-num">04</span>
+        <span class="nav-text">Download</span>
+      </a>
     </nav>
+
+    <!-- Tools nav — mirrors the Workflow nav structure (label + nav-items)
+         so the sidebar reads symmetrically top-to-bottom. Recents is its
+         own item that opens an overlay rather than living always-visible
+         in the sidebar. -->
+    <nav class="sidebar-nav sidebar-tools-nav">
+      <div class="nav-label">Tools</div>
+      <a class="nav-item" id="sidebarRecents" href="#" title="Recent projects">
+        <span class="nav-dot"></span>
+        <span class="nav-num"></span>
+        <span class="nav-text">Recents</span>
+      </a>
+      <a class="nav-item" id="sidebarSettings" href="#" title="API key, preferences">
+        <span class="nav-dot"></span>
+        <span class="nav-num"></span>
+        <span class="nav-text">Settings</span>
+      </a>
+      <a class="nav-item" id="sidebarHelp" href="mailto:reed@007technologies.com?subject=SpecParse%20%E2%80%94%20help%20request" title="Get help">
+        <span class="nav-dot"></span>
+        <span class="nav-num"></span>
+        <span class="nav-text">Help</span>
+      </a>
+    </nav>
+
+
     <div class="sidebar-footer">
+      <div class="sidebar-poweredby">Powered by</div>
+      <a id="sidebarBrand007" class="sidebar-007" href="https://007technologies.com" title="Open 007technologies.com">
+        <span class="sidebar-007-num">007</span>
+        <span class="sidebar-007-word">Technologies</span>
+      </a>
       <div class="sidebar-version" id="aboutTrigger">SpecParse v1.0</div>
     </div>
   </aside>
 
+  <!-- ============================================================
+       CONTENT
+       ============================================================ -->
   <main class="content">
 
-    <div class="view active" id="viewUpload">
-      <div class="view-header">
-        <h1>Upload Specification Book</h1>
-        <p>Drop your project manual PDF to generate a submittal log automatically.</p>
+    <!-- Auto-update banner — hidden by default, shown when an update has
+         been downloaded and is ready to install. main.js sends update-status
+         events; renderer.js drives this element's visibility + content. -->
+    <div class="update-banner d-none" id="updateBanner">
+      <div class="update-banner-inner">
+        <span class="update-banner-dot"></span>
+        <span class="update-banner-text" id="updateBannerText">A new version is ready to install.</span>
+        <button class="update-banner-btn" id="updateBannerBtn">Restart &amp; install</button>
+        <button class="update-banner-close" id="updateBannerClose" title="Dismiss">&#10005;</button>
       </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: UPLOAD
+         ============================================================ -->
+    <div class="view active" id="viewUpload">
+      <header class="view-header">
+        <div class="section-label">
+          <span class="section-label-num">01</span>
+          <span>Upload specification</span>
+        </div>
+        <h1>Drop the project manual. <span class="headline-alt">We'll do the rest.</span></h1>
+        <p>
+          Upload a CSI MasterFormat spec PDF and SpecParse will generate a
+          Procore-ready 32-column submittal log in under two minutes.
+        </p>
+      </header>
+
       <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 12 15 15"/>
+          </svg>
+        </div>
         <div class="drop-title">Drop your PDF here</div>
         <div class="drop-sub">or</div>
-        <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+        <button class="btn btn-ghost" id="browseBtn">Browse files</button>
         <input type="file" id="fileInput" accept=".pdf" style="display:none" />
       </div>
+
       <div class="file-selected d-none" id="fileSelected">
         <div class="file-info">
           <div class="file-name" id="selectedFileName"></div>
@@ -73,24 +202,34 @@
         </div>
         <button class="file-clear" id="clearFile">&#10005;</button>
       </div>
+
       <div class="form-group">
-        <label class="form-label">Project Name</label>
-        <input type="text" class="form-input" id="projectName" placeholder="e.g. DT KSW04 - Garden City" />
+        <label class="form-label" for="projectName">Project name</label>
+        <input type="text" class="form-input" id="projectName" placeholder="e.g. DT KSW04 — Garden City" />
         <div class="form-hint">Used as the sheet name in the Excel output</div>
       </div>
-      <button class="btn btn-success btn-full" id="generateBtn" disabled>Generate Submittal Log</button>
 
-      <div class="recent-section d-none" id="recentSection">
-        <div class="recent-label">Recent Projects</div>
-        <div class="recent-list" id="recentList"></div>
-      </div>
+      <button class="btn btn-accent-solid btn-lg btn-full" id="generateBtn" disabled>
+        Generate submittal log
+      </button>
+
+      <!-- Recent projects moved to the sidebar — see <aside class="sidebar">.
+           Element kept removed here to avoid duplicate IDs. -->
     </div>
 
+    <!-- ============================================================
+         VIEW: PROCESS
+         ============================================================ -->
     <div class="view" id="viewProcess">
-      <div class="view-header">
-        <h1>Analyzing Spec Book</h1>
-        <p>Reading each section and identifying required submittals.</p>
-      </div>
+      <header class="view-header">
+        <div class="section-label">
+          <span class="section-label-num">02</span>
+          <span>Analyzing spec book</span>
+        </div>
+        <h1>Reading each section. <span class="headline-alt">Cataloguing submittals.</span></h1>
+        <p>Identifying required submittals across every CSI division in your project manual.</p>
+      </header>
+
       <div class="progress-card">
         <div class="progress-header">
           <div class="progress-message" id="progressSection">Starting…</div>
@@ -102,25 +241,35 @@
           <span id="progressEta" class="progress-eta"></span>
         </div>
       </div>
+
       <div class="section-log-wrap">
         <div class="section-log-label">Activity</div>
         <div class="section-log" id="sectionLog"></div>
       </div>
     </div>
 
+    <!-- ============================================================
+         VIEW: REVIEW
+         ============================================================ -->
     <div class="view" id="viewReview">
-      <div class="view-header">
-        <h1>Review Submittals</h1>
-        <p id="reviewSubtitle">Check and edit each row before exporting.</p>
-      </div>
+      <header class="view-header">
+        <div class="section-label">
+          <span class="section-label-num">03</span>
+          <span>Review submittals</span>
+        </div>
+        <h1>Check the log. <span class="headline-alt">Edit what you need.</span></h1>
+        <p id="reviewSubtitle">Every row can be edited, removed, or reordered before export.</p>
+      </header>
+
       <div class="review-toolbar">
         <div class="review-count" id="reviewCount"></div>
         <div class="review-actions">
-          <button class="btn btn-ghost btn-sm" id="selectAllBtn">Select All</button>
-          <button class="btn btn-ghost btn-sm" id="selectNoneBtn">Select None</button>
-          <button class="btn btn-ghost btn-sm" id="addRowBtn">+ Add Row</button>
+          <button class="btn btn-ghost btn-sm" id="selectAllBtn">Select all</button>
+          <button class="btn btn-ghost btn-sm" id="selectNoneBtn">Select none</button>
+          <button class="btn btn-ghost btn-sm" id="addRowBtn">+ Add row</button>
         </div>
       </div>
+
       <div class="review-table-wrap">
         <table class="review-table">
           <thead>
@@ -137,59 +286,91 @@
           <tbody id="reviewBody"></tbody>
         </table>
       </div>
-      
-        <!-- Query Bar -->
-        <div class="query-bar" id="queryBar">
-          <div class="query-header" id="queryToggle">
-            <span>Ask a question about this spec</span>
-            <span class="query-chevron" id="queryChevron">&#9650;</span>
+
+      <!-- ============================================================
+           AI QUERY BAR — Haiku-powered spec Q&A
+           ============================================================ -->
+      <section class="query-bar" id="queryBar">
+        <div class="query-header" id="queryToggle" role="button" tabindex="0" aria-expanded="true">
+          <div class="query-title">
+            <span class="query-spark" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9 12 2"/></svg>
+            </span>
+            <span>Ask about this spec</span>
           </div>
-          <div class="query-body" id="queryBody">
-            <div class="query-input-row">
-              <input type="text" id="queryInput" placeholder="Ask anything about this spec..." />
-              <button id="querySubmit" class="btn-query-arrow" title="Ask"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="#265C30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-              <button id="queryClear" class="btn-query-clear" title="Clear" style="display:none">&times;</button>
-            </div>
-            <div class="query-response" id="queryResponse" style="display:none"></div>
-          </div>
+          <span class="query-chevron" id="queryChevron" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
         </div>
-        <div class="review-footer">
-        <button class="btn btn-ghost" id="backToUploadBtn">Start Over</button>
-        <button class="btn btn-success btn-lg" id="confirmBtn">Export to Excel</button>
+
+        <div class="query-body" id="queryBody">
+          <div class="query-input-row">
+            <input type="text" id="queryInput" class="query-input" placeholder="Ask anything about this spec..." />
+            <button id="querySubmit" class="query-submit" title="Ask">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+            <button id="queryClear" class="btn-query-clear" title="Clear" style="display:none">&times;</button>
+          </div>
+          <div class="query-response" id="queryResponse" style="display:none"></div>
+        </div>
+      </section>
+
+      <div class="review-footer">
+        <button class="btn btn-ghost" id="backToUploadBtn">Start over</button>
+        <button class="btn btn-accent-solid btn-lg" id="confirmBtn">Export to Excel</button>
       </div>
     </div>
 
+    <!-- ============================================================
+         VIEW: RESULT
+         ============================================================ -->
     <div class="view" id="viewResult">
-      <div class="view-header">
-        <h1>Submittal Log Ready</h1>
-        <p>Your Excel file has been generated.</p>
-      </div>
+      <header class="view-header">
+        <div class="section-label">
+          <span class="section-label-num">04</span>
+          <span>Submittal log ready</span>
+        </div>
+        <h1>Done. <span class="headline-alt">Your Excel file is queued for download.</span></h1>
+      </header>
+
       <div class="result-card">
         <div class="result-stats" id="resultStats"></div>
-        <button class="btn btn-success btn-lg" id="downloadBtn">Save Excel File</button>
+        <button class="btn btn-accent-solid btn-lg" id="downloadBtn">Save Excel file</button>
         <button class="btn btn-ghost" id="startOverBtn">Process another spec book</button>
       </div>
     </div>
 
+    <!-- ============================================================
+         VIEW: ERROR
+         ============================================================ -->
     <div class="view" id="viewError">
-      <div class="view-header"><h1>Something went wrong</h1></div>
+      <header class="view-header">
+        <div class="section-label">
+          <span class="section-label-num">!</span>
+          <span>Analysis error</span>
+        </div>
+        <h1>Something went wrong.</h1>
+      </header>
       <div class="error-card">
         <p id="errorMessage"></p>
-        <button class="btn btn-primary" id="retryBtn">Try Again</button>
+        <button class="btn btn-primary" id="retryBtn">Try again</button>
       </div>
     </div>
 
   </main>
 </div>
 
+<!-- ============================================================
+     SETTINGS OVERLAY — API Key
+     ============================================================ -->
 <div class="overlay d-none" id="settingsOverlay">
   <div class="modal">
     <div class="modal-header">
-      <h2>API Key</h2>
+      <h2>API key</h2>
       <button class="modal-close" id="closeSettings">&#10005;</button>
     </div>
     <div class="modal-body">
-      <label class="form-label">Anthropic API Key</label>
+      <label class="form-label" for="apiKeyInput">Anthropic API key</label>
       <div class="input-row">
         <input type="password" class="form-input" id="apiKeyInput" placeholder="sk-ant-api03-..." />
         <button class="btn btn-ghost btn-sm" id="toggleKey">Show</button>
@@ -199,11 +380,38 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="cancelSettings">Cancel</button>
-      <button class="btn btn-primary" id="saveKey">Save Key</button>
+      <button class="btn btn-primary" id="saveKey">Save key</button>
     </div>
   </div>
 </div>
 
+<!-- ============================================================
+     RECENTS OVERLAY (opened by Tools → Recents)
+     ============================================================ -->
+<div class="overlay d-none" id="recentsOverlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Recent projects</h2>
+      <button class="modal-close" id="closeRecents">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Same IDs as the original sidebar implementation so renderer.js's
+           loadRecentProjects() continues to work unchanged. When empty,
+           recentSection toggles d-none (hiding the list) and recentEmpty
+           shows the "no projects yet" message. -->
+      <div id="recentSection" class="d-none">
+        <div id="recentList" class="recent-list"></div>
+      </div>
+      <div id="recentEmpty" class="recent-empty">
+        No projects yet. Process a spec and it'll appear here so you can resume later.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ABOUT OVERLAY
+     ============================================================ -->
 <div class="overlay d-none" id="aboutOverlay">
   <div class="modal modal-sm">
     <div class="modal-header">
@@ -211,18 +419,19 @@
       <button class="modal-close" id="closeAbout">&#10005;</button>
     </div>
     <div class="about-body">
-      <div class="about-logo">SP</div>
       <div class="about-app">SpecParse</div>
       <div class="about-version">Version 1.0.0</div>
-      <div class="about-company">Scott + Reid General Contractors</div>
       <div class="about-divider"></div>
+      <div class="about-company">Built for Scott + Reid General Contractors</div>
       <div class="about-powered">Powered by 007 Technologies</div>
-      <div class="about-project">SPECTRE PROJECT</div>
-      <button class="btn btn-ghost btn-sm about-api-btn" id="openApiKey">Manage API Key</button>
+      <div class="about-project">DOSSIER PROJECT</div>
+      <button class="btn btn-ghost btn-sm about-api-btn" id="openApiKey">Manage API key</button>
     </div>
   </div>
 </div>
 
+<!-- Splash helix + 007 brand link (external file to satisfy CSP) -->
+<script src="splash-helix.js"></script>
 <script src="renderer.js"></script>
 </body>
 </html>

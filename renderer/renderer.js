@@ -324,8 +324,12 @@ async function loadRecentProjects() {
   const recent = await window.specparse.getRecent();
   const section = document.getElementById('recentSection');
   const list    = document.getElementById('recentList');
-  if (!recent || !recent.length) { section.classList.add('d-none'); return; }
-  section.classList.remove('d-none');
+  const empty   = document.getElementById('recentEmpty');
+  const hasItems = !!(recent && recent.length);
+  // Toggle list vs empty-state inside the recents overlay.
+  section.classList.toggle('d-none', !hasItems);
+  if (empty) empty.classList.toggle('d-none', hasItems);
+  if (!hasItems) return;
   list.innerHTML = '';
   recent.forEach(p => {
     const el = document.createElement('div');
@@ -389,6 +393,33 @@ document.getElementById('openApiKey').addEventListener('click', () => {
 const settingsOverlay = document.getElementById('settingsOverlay');
 document.getElementById('closeSettings').addEventListener('click', () => settingsOverlay.classList.add('d-none'));
 document.getElementById('cancelSettings').addEventListener('click', () => settingsOverlay.classList.add('d-none'));
+
+// Sidebar Settings link — opens the same overlay as the About → Manage API key path
+const sidebarSettingsBtn = document.getElementById('sidebarSettings');
+if (sidebarSettingsBtn) {
+  sidebarSettingsBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    settingsOverlay.classList.remove('d-none');
+  });
+}
+
+// Sidebar Recents link — opens the recents overlay (which contains the
+// existing recentSection/recentList markup, populated by loadRecentProjects).
+const recentsOverlay = document.getElementById('recentsOverlay');
+const sidebarRecentsBtn = document.getElementById('sidebarRecents');
+if (sidebarRecentsBtn && recentsOverlay) {
+  sidebarRecentsBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    recentsOverlay.classList.remove('d-none');
+    // Refresh the list every time the overlay opens — cheap, ensures the
+    // user sees the latest state even if they just removed an item.
+    loadRecentProjects();
+  });
+  const closeRecentsBtn = document.getElementById('closeRecents');
+  if (closeRecentsBtn) {
+    closeRecentsBtn.addEventListener('click', () => recentsOverlay.classList.add('d-none'));
+  }
+}
 document.getElementById('toggleKey').addEventListener('click', () => {
   const inp = document.getElementById('apiKeyInput');
   const show = inp.type === 'password';
@@ -492,5 +523,49 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && e.target && e.target.id === 'queryInput') window.runQuery();
 });
+
+// ── Auto-update banner ────────────────────────────────────────────────────────
+// main.js fires 'update-status' events as electron-updater progresses through
+// checking → available → downloading → downloaded (or → error). We only show
+// the banner when the update is fully downloaded and ready to install — quiet
+// during the in-progress states so the user isn't distracted.
+(function () {
+  const banner = document.getElementById('updateBanner');
+  const text = document.getElementById('updateBannerText');
+  const btn = document.getElementById('updateBannerBtn');
+  const close = document.getElementById('updateBannerClose');
+  if (!banner || !window.specparse || !window.specparse.onUpdateStatus) return;
+
+  let dismissedVersion = null;
+
+  window.specparse.onUpdateStatus(({ status, data }) => {
+    if (status === 'downloaded') {
+      // Don't re-show if user explicitly dismissed this exact version.
+      if (dismissedVersion && dismissedVersion === data) return;
+      const v = data ? ` (v${data})` : '';
+      text.textContent = `A new version of SpecParse is ready to install${v}.`;
+      banner.classList.remove('d-none');
+    } else if (status === 'error') {
+      // Errors are tracked via telemetry; don't bother the user with a banner.
+      console.warn('[update] error:', data);
+    }
+    // checking / available / downloading / not-available — no UI.
+  });
+
+  if (btn) {
+    btn.addEventListener('click', () => {
+      window.specparse.installUpdate();
+    });
+  }
+  if (close) {
+    close.addEventListener('click', () => {
+      // Dismiss for the current downloaded version. Banner returns next
+      // launch (when the update is auto-installed by autoInstallOnAppQuit
+      // OR a newer version arrives).
+      dismissedVersion = text.textContent.match(/v[\d.]+/)?.[0] || true;
+      banner.classList.add('d-none');
+    });
+  }
+})();
 
 

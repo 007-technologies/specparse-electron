@@ -9,7 +9,7 @@
 #   1. Verifies ANTHROPIC_API_KEY is set
 #   2. Generates assets/icon.ico from icon_base.png (one-time, if missing)
 #   3. Runs electron-builder for macOS (.dmg) and Windows (.exe)
-#   4. Pushes the repo to GitHub as reedhengleman/specparse-electron (private)
+#   4. Pushes the repo to GitHub as 007-technologies/specparse-electron (public — for auto-update)
 #
 # Safe to re-run — it detects existing artifacts and GitHub repo.
 
@@ -36,6 +36,28 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
   fail "ANTHROPIC_API_KEY is not set. Run: source ~/.zshrc"
 fi
 ok "ANTHROPIC_API_KEY is set"
+
+# Telemetry config — required for v1.1+ builds. Missing = telemetry silently
+# no-ops in the built app, which is fine for dev but defeats the purpose for
+# customer builds. Warn but don't fail.
+if [ -z "$CUSTOMER_ID" ]; then
+  warn "CUSTOMER_ID not set — telemetry will be unattributed. Set: export CUSTOMER_ID=scott-reid-spencer"
+  CUSTOMER_ID=""
+else
+  ok "CUSTOMER_ID set: $CUSTOMER_ID"
+fi
+
+if [ -z "$TELEMETRY_KEY" ]; then
+  warn "TELEMETRY_KEY not set — telemetry will silently no-op. Pull from your saved Cloudflare secret."
+  TELEMETRY_KEY=""
+else
+  ok "TELEMETRY_KEY set"
+fi
+
+# Default endpoint — points at the deployed Pages function. Override only if
+# you stand up a separate telemetry stack.
+TELEMETRY_ENDPOINT="${TELEMETRY_ENDPOINT:-https://007-technologies-website.pages.dev/api/telemetry}"
+ok "TELEMETRY_ENDPOINT: $TELEMETRY_ENDPOINT"
 
 if ! command -v gh &> /dev/null; then
   fail "GitHub CLI (gh) not found. Run: brew install gh"
@@ -78,11 +100,26 @@ rm -rf release/
 node build/prepare-build.js
 
 EXTRA_META="-c.extraMetadata.anthropicKey=$ANTHROPIC_API_KEY"
+EXTRA_META="$EXTRA_META -c.extraMetadata.customerId=$CUSTOMER_ID"
+EXTRA_META="$EXTRA_META -c.extraMetadata.telemetryEndpoint=$TELEMETRY_ENDPOINT"
+EXTRA_META="$EXTRA_META -c.extraMetadata.telemetryKey=$TELEMETRY_KEY"
+
+# --publish always pushes built artifacts (.dmg, .exe, latest.yml, latest-mac.yml)
+# to GitHub Releases so electron-updater on customer machines can find them.
+# Requires GH_TOKEN env var. If GH_TOKEN is missing we fall back to a
+# build-only run so you can still produce binaries for manual distribution.
+if [ -n "$GH_TOKEN" ]; then
+  PUBLISH_FLAG="--publish always"
+  ok "GH_TOKEN set — will publish to GitHub Releases"
+else
+  PUBLISH_FLAG=""
+  warn "GH_TOKEN not set — building artifacts but NOT publishing to releases. Auto-update won't pick up this build."
+fi
 
 if [ $HAS_WINE -eq 1 ]; then
-  npx electron-builder --mac --win $EXTRA_META
+  npx electron-builder --mac --win $EXTRA_META $PUBLISH_FLAG
 else
-  npx electron-builder --mac $EXTRA_META
+  npx electron-builder --mac $EXTRA_META $PUBLISH_FLAG
 fi
 
 ok "Build complete — artifacts in release/"
@@ -139,19 +176,19 @@ EOF
 fi
 
 # Create the GitHub repo if it doesn't exist yet
-if ! gh repo view reedhengleman/specparse-electron &> /dev/null; then
-  gh repo create reedhengleman/specparse-electron --private --source=. --remote=origin --push
+if ! gh repo view 007-technologies/specparse-electron &> /dev/null; then
+  gh repo create 007-technologies/specparse-electron --public --source=. --remote=origin --push
   ok "Created private repo and pushed"
 else
   # Repo exists — just push
   if ! git remote | grep -q origin; then
-    git remote add origin https://github.com/reedhengleman/specparse-electron.git
+    git remote add origin https://github.com/007-technologies/specparse-electron.git
   fi
   git push -u origin main
   ok "Pushed to existing repo"
 fi
 
-REPO_URL="https://github.com/reedhengleman/specparse-electron"
+REPO_URL="https://github.com/007-technologies/specparse-electron"
 
 # ── Step 5: Done ───────────────────────────────────────────────────────────
 echo ""

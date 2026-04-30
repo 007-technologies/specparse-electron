@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
 const store = new Store();
+const { autoUpdater } = require('electron-updater');
 const { track, trackQuit, trackError } = require('./src/telemetry');
 
 // ── Process-level error tracking ──────────────────────────────────────────────
@@ -107,8 +108,42 @@ app.whenReady().then(() => {
   createWindow();
   // Telemetry: app launched
   track('app_launched');
+
+  // Auto-update wiring (only in packaged builds — no-op during npm start).
+  // Mirrors Skyfall's pattern: subscribe to electron-updater events, forward
+  // each to the renderer as 'update-status' IPC events. Renderer renders a
+  // banner. Click "Install" → quitAndInstall() (handled below by IPC).
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('checking-for-update', () => sendUpdate('checking'));
+    autoUpdater.on('update-available',     (info) => sendUpdate('available', info.version));
+    autoUpdater.on('update-not-available', () => sendUpdate('not-available'));
+    autoUpdater.on('download-progress',    (p) => sendUpdate('downloading', Math.round(p.percent)));
+    autoUpdater.on('update-downloaded',    (info) => sendUpdate('downloaded', info.version));
+    autoUpdater.on('error',                (err) => {
+      sendUpdate('error', err && err.message);
+      trackError('autoUpdater', err).catch(() => {});
+    });
+
+    // Check on launch, then every hour while the app is open.
+    autoUpdater.checkForUpdates().catch(() => {});
+    setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
+  }
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+// IPC: forward auto-update status messages to the renderer.
+function sendUpdate(status, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', { status, data });
+  }
+}
+
+// IPC: install the downloaded update now (renderer banner triggers this
+// when the user clicks "Install" after status === 'downloaded').
+ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 
 ipcMain.handle('query-spec', async (event, { query, sections, history, submittals }) => {
   const apiKey = getApiKey();

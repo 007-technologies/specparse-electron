@@ -19,4 +19,8 @@ contextBridge.exposeInMainWorld('specparse', {
     removeRecent: (projectName) => ipcRenderer.invoke('remove-recent', projectName),
     hasEmbeddedKey: () => ipcRenderer.invoke('has-embedded-key'),
     getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    // Auto-update — banner subscribes to status; button calls install
+    onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_, data) => cb(data)),
+    installUpdate: () => ipcRenderer.invoke('install-update'),
 });
