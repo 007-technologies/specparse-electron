@@ -44,9 +44,10 @@ const DIVISION_NAMES = {
 // ── Splash ────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const splash = document.getElementById('splashScreen');
-  const dots   = document.getElementById('splashDots');
   const cont   = document.getElementById('splashContinue');
-  setTimeout(() => { dots.classList.add('d-none'); cont.classList.remove('d-none'); }, 2200);
+  // The "Click to continue" button is now visible immediately — no fake
+  // loading bar, no setTimeout-gated reveal. The user can dismiss the
+  // splash the moment they see it.
   cont.addEventListener('click', () => {
     splash.classList.add('fade-out');
     setTimeout(() => { splash.style.display = 'none'; }, 700);

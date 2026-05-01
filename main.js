@@ -79,13 +79,32 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440, height: 900, minWidth: 700, minHeight: 580,
     titleBarStyle, backgroundColor: '#0F172A',
+    // Don't show the window until the renderer's first paint is ready.
+    // Without this, Electron paints an empty backgroundColor-only window
+    // immediately on creation, then sits there visible-but-empty for
+    // several hundred milliseconds while index.html loads, the splash CSS
+    // parses, and the helix paths get drawn. The user perceives that as
+    // launch lag — "click the dock icon, dark blue blank window for half
+    // a second, then the splash pops in."
+    //
+    // With show:false + ready-to-show, the OS shows nothing until Electron
+    // is genuinely ready to paint the first frame. The splash appears
+    // fully formed (helix already drawn synchronously by splash-helix.js)
+    // the moment the window becomes visible.
+    show: false,
     icon: process.platform === 'win32'
       ? path.join(__dirname, 'assets', 'icon.ico')
       : undefined, // macOS gets icon from .app bundle; Linux would use a .png
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  mainWindow.maximize();
+  // Defer show() and maximize() until the renderer reports first-paint ready.
+  // This event fires when Electron has computed the initial layout and is
+  // ready to actually paint pixels — usually within ~200ms of loadFile.
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.maximize();
+  });
 }
 
 

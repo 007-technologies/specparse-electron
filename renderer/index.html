@@ -60,12 +60,12 @@
   </div>
 
   <div class="splash-bottom-cta" id="splashBottomCta">
-    <div class="splash-line">
-      <div class="splash-bar"></div>
-      <div class="splash-line-accent"></div>
-    </div>
-    <div class="splash-dots" id="splashDots"><span></span><span></span><span></span></div>
-    <button class="splash-continue d-none" id="splashContinue">Click to continue</button>
+    <!-- Stripped: removed the fake-progress loading bar and the pulsing
+         dots that gated dismiss for 2.2s. Bar wasn't actually waiting on
+         anything, dots were decorating the wait. Cipher's splash had it
+         right — just the brand content plus a "Click to continue" button
+         that's available immediately. -->
+    <button class="splash-continue" id="splashContinue">Click to continue</button>
   </div>
 
   <div class="splash-footer">

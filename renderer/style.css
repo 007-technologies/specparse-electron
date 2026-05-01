@@ -181,7 +181,13 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   opacity: 1;
   transition: opacity var(--dur-slow) var(--ease-out);
-  -webkit-app-region: drag;
+  /* DO NOT add -webkit-app-region: drag here. Drag regions hijack mousemove
+     events at the Electron level — JavaScript listeners on the window never
+     fire while the cursor is over a drag region. That's what was preventing
+     the helix from reacting to the cursor. The splash is a transient overlay
+     that fades out on click; there's no need for it to be window-draggable.
+     The user can drag the actual app window via its title bar after the
+     splash dismisses. */
 }
 
 .splash.fade-out {
@@ -427,12 +433,16 @@ a { color: inherit; text-decoration: none; }
     var(--navy-600) 45%,
     var(--gold) 100%);
   border-radius: 999px;
-  animation: splashLoad 2.2s var(--ease-out) forwards;
+  /* Was 2.2s with a 0%→78%→100% keyframe stall that read as a "freeze"
+     mid-bar. Daily-use apps shouldn't make the user wait 2 seconds every
+     launch. Shortened to 700ms and removed the stall keyframe so the bar
+     fills smoothly end-to-end. The renderer's JS timer that flips dots →
+     "Click to continue" was synced to this duration too — see renderer.js. */
+  animation: splashLoad 700ms linear forwards;
 }
 
 @keyframes splashLoad {
   0%   { width: 0%; }
-  60%  { width: 78%; }
   100% { width: 100%; }
 }
 
@@ -444,7 +454,7 @@ a { color: inherit; text-decoration: none; }
     rgba(250, 248, 243, 0.5) 50%,
     transparent 100%);
   transform: translateX(-100%);
-  animation: splashShine 2.2s var(--ease-out) forwards;
+  animation: splashShine 700ms var(--ease-out) forwards;
 }
 
 @keyframes splashShine {
