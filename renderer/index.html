@@ -129,6 +129,11 @@
         <span class="nav-num"></span>
         <span class="nav-text">Settings</span>
       </a>
+      <a class="nav-item" id="sidebarFeedback" href="#" title="Send feedback to Reed">
+        <span class="nav-dot"></span>
+        <span class="nav-num"></span>
+        <span class="nav-text">Feedback</span>
+      </a>
       <a class="nav-item" id="sidebarHelp" href="mailto:reed@007technologies.com?subject=SpecParse%20%E2%80%94%20help%20request" title="Get help">
         <span class="nav-dot"></span>
         <span class="nav-num"></span>
@@ -203,6 +208,13 @@
         <button class="file-clear" id="clearFile">&#10005;</button>
       </div>
 
+      <!-- Sample-spec affordance: shown only if assets/samples/sample-spec.pdf
+           ships with the build. Lets Spencer demo SpecParse to other PMs without
+           needing them to bring a spec PDF. Also useful for first-time users. -->
+      <p id="sampleSpecHint" class="sample-spec-hint d-none">
+        No spec handy? <button id="loadSampleSpec" class="link-btn" type="button">Try with a sample spec</button>
+      </p>
+
       <div class="form-group">
         <label class="form-label" for="projectName">Project name</label>
         <input type="text" class="form-input" id="projectName" placeholder="e.g. DT KSW04 — Garden City" />
@@ -264,6 +276,7 @@
       <div class="review-toolbar">
         <div class="review-count" id="reviewCount"></div>
         <div class="review-actions">
+          <button class="btn btn-ghost btn-sm" id="filterFlaggedBtn" style="display:none">Show flagged only</button>
           <button class="btn btn-ghost btn-sm" id="selectAllBtn">Select all</button>
           <button class="btn btn-ghost btn-sm" id="selectNoneBtn">Select none</button>
           <button class="btn btn-ghost btn-sm" id="addRowBtn">+ Add row</button>
@@ -276,6 +289,7 @@
             <tr>
               <th class="col-drag"></th>
               <th class="col-check"><input type="checkbox" id="masterCheck" checked /></th>
+              <th class="col-conf" title="Confidence — green = verified, yellow = AI clean, red = AI uncertain"></th>
               <th class="col-section">Section</th>
               <th class="col-number">Sub. No.</th>
               <th class="col-title">Title / Description</th>
@@ -407,6 +421,98 @@
 <!-- ============================================================
      RECENTS OVERLAY (opened by Tools → Recents)
      ============================================================ -->
+<!-- ============================================================
+     FEEDBACK OVERLAY — in-app feedback POSTs to /api/feedback
+     ============================================================ -->
+<div class="overlay d-none" id="feedbackOverlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Send feedback</h2>
+      <button class="modal-close" id="feedbackClose">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Goes straight to Reed. Bugs, ideas, anything tripping you up &mdash; all welcome.</p>
+
+      <div class="form-group">
+        <label class="form-label">What is this?</label>
+        <div class="feedback-cat-row">
+          <button class="btn btn-ghost feedback-cat" data-cat="bug">Bug</button>
+          <button class="btn btn-ghost feedback-cat" data-cat="idea">Idea</button>
+          <button class="btn btn-ghost feedback-cat" data-cat="praise">Praise</button>
+          <button class="btn btn-ghost feedback-cat is-active" data-cat="other">Other</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="feedbackBody">What's on your mind?</label>
+        <textarea id="feedbackBody" class="form-input" rows="5" placeholder="The more specific the better — what you were doing, what you expected, what happened instead." maxlength="8000"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="feedbackEmail">Email <span class="form-hint-inline">(optional — only if you want a reply)</span></label>
+        <input type="email" id="feedbackEmail" class="form-input" placeholder="you@company.com" />
+      </div>
+
+      <div id="feedbackStatus" class="feedback-status d-none"></div>
+    </div>
+    <div class="modal-footer">
+      <button id="feedbackCancel" class="btn btn-ghost">Cancel</button>
+      <button id="feedbackSend" class="btn btn-primary">Send feedback</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIRST-LAUNCH ONBOARDING OVERLAY — shown once per machine
+     Walks Spencer (and any prospects he demos to) through the
+     three-step flow before their first spec PDF lands.
+     ============================================================ -->
+<div class="overlay d-none" id="onboardingOverlay">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2>Welcome to SpecParse</h2>
+      <button class="modal-close" id="onboardingSkip">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="onboarding-lead">
+        SpecParse turns a CSI MasterFormat spec PDF into a Procore-compatible
+        submittal log in under two minutes. Here's the three-step flow:
+      </p>
+
+      <ol class="onboarding-steps">
+        <li>
+          <span class="onboarding-step-num">01</span>
+          <div>
+            <strong>Upload</strong>
+            <span class="onboarding-step-desc">Drop a spec PDF or browse to one. SpecParse reads CSI MasterFormat books — both 1995 (5-digit) and 2004+ (6-digit) numbering.</span>
+          </div>
+        </li>
+        <li>
+          <span class="onboarding-step-num">02</span>
+          <div>
+            <strong>Process</strong>
+            <span class="onboarding-step-desc">SpecParse identifies submittals across the spec. ~55 common sections come straight from a curated dictionary (verified, no AI guess); everything else routes through Claude Haiku.</span>
+          </div>
+        </li>
+        <li>
+          <span class="onboarding-step-num">03</span>
+          <div>
+            <strong>Review &amp; export</strong>
+            <span class="onboarding-step-desc">Confidence flags (green / yellow / red) tell you which rows came from the dictionary vs AI. Edit, reorder, or remove rows, then export an Excel file ready to drag into Procore's Submittals importer.</span>
+          </div>
+        </li>
+      </ol>
+
+      <p id="onboardingSampleHint" class="onboarding-sample-hint d-none">
+        First time? <button id="onboardingTrySample" class="link-btn" type="button">Try with a sample spec</button> &mdash; no upload needed.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button id="onboardingStart" class="btn btn-primary">Get started</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay d-none" id="recentsOverlay">
   <div class="modal modal-sm">
     <div class="modal-header">
@@ -419,6 +525,10 @@
            recentSection toggles d-none (hiding the list) and recentEmpty
            shows the "no projects yet" message. -->
       <div id="recentSection" class="d-none">
+        <div class="recent-search-row">
+          <input type="search" id="recentSearch" class="form-input recent-search-input" placeholder="Search by project name or date..." />
+          <span class="recent-search-count" id="recentSearchCount"></span>
+        </div>
         <div id="recentList" class="recent-list"></div>
       </div>
       <div id="recentEmpty" class="recent-empty">
@@ -440,11 +550,17 @@
     <div class="about-body">
       <div class="about-app">SpecParse</div>
       <div class="about-version">Version 1.0.0</div>
+      <div class="about-customer" id="aboutCustomer"></div>
       <div class="about-divider"></div>
       <div class="about-company">Built for Scott + Reid General Contractors</div>
       <div class="about-powered">Powered by 007 Technologies</div>
       <div class="about-project">DOSSIER PROJECT</div>
-      <button class="btn btn-ghost btn-sm about-api-btn" id="openApiKey">Manage API key</button>
+      <div class="about-actions">
+        <button class="btn btn-ghost btn-sm about-api-btn" id="openApiKey">Manage API key</button>
+        <button class="btn btn-ghost btn-sm" id="aboutCheckUpdates">Check for updates</button>
+        <button class="btn btn-ghost btn-sm" id="aboutSendFeedback">Send feedback</button>
+      </div>
+      <div class="about-update-status" id="aboutUpdateStatus"></div>
     </div>
   </div>
 </div>

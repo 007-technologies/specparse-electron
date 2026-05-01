@@ -192,6 +192,35 @@ RULES:
 5. Title format: plain name for product data; add " - SD" suffix for shop drawings.
 Return ONLY a valid JSON array. No prose, no explanation.`;
 
+// Score an AI-extracted submittal as medium or low confidence based on
+// the quality of fields Claude returned. Goal: a "low" badge means the
+// user should look twice before exporting.
+//
+// Strong signals (all needed for medium):
+//   - Title is non-empty, ≥4 chars, and isn't a bare generic word
+//   - Description is non-empty and ≥20 chars (a real sentence's worth)
+//   - Type is one of the three standard Procore strings
+//
+// Anything weaker → low. The threshold is intentionally strict — false
+// positives ("flagged but actually fine") are cheap (user just glances
+// at a yellow row), but false negatives ("not flagged, actually wrong")
+// cost the user trust the first time they catch it.
+const STANDARD_TYPES = new Set(['Product Information', 'Shop Drawing', 'Sample']);
+const GENERIC_TITLES = new Set([
+  'submittal', 'submittals', 'product', 'products', 'shop drawing',
+  'shop drawings', 'sample', 'samples', 'data', 'product data',
+]);
+function scoreAiConfidence(title, description, type) {
+  const t = (title || '').toLowerCase().trim();
+  const d = (description || '').trim();
+  const ty = (type || '').trim();
+  if (!t || t.length < 4) return 'low';
+  if (GENERIC_TITLES.has(t)) return 'low';
+  if (!d || d.length < 20) return 'low';
+  if (!STANDARD_TYPES.has(ty)) return 'low';
+  return 'medium';
+}
+
 // Categorize an error from the Anthropic SDK into a user-friendly message.
 // Returns { message, fatal } — fatal errors (auth/no-internet) should abort the whole run.
 function classifyApiError(err) {
@@ -219,7 +248,9 @@ async function extractAllSubmittals(apiKey, sections, onProgress) {
 
   for (let i = 0; i < sections.length; i++) {
     const { num, title, content, submittalsBlock } = sections[i];
-    if (onProgress) onProgress(i + 1, sections.length, num + ' - ' + title);
+    // 4th arg `found` lets the renderer show "47 found so far" while we scan,
+    // which makes the wait feel less mechanical when a 200-page spec is grinding.
+    if (onProgress) onProgress(i + 1, sections.length, num + ' - ' + title, results.length);
 
     if (isSkipped(num)) continue;
 
@@ -240,6 +271,8 @@ async function extractAllSubmittals(apiKey, sections, onProgress) {
           title: item.title,
           type: item.type,
           description: item.description,
+          // Curated dictionary entries — verified by hand. Always high confidence.
+          confidence: 'high',
         });
       });
       continue;
@@ -276,12 +309,19 @@ async function extractAllSubmittals(apiKey, sections, onProgress) {
         continue;
       }
       items.forEach(function(item, j) {
+        const cleanTitle = (item.title || '').trim();
+        const cleanDesc = (item.description || '').trim();
+        const cleanType = (item.type || '').trim();
         results.push({
           specSection: num + ' - ' + title,
           submittalNumber: num + '-' + (j + 1),
-          title: item.title || '',
-          type: item.type || 'Product Information',
-          description: item.description || '',
+          title: cleanTitle,
+          type: cleanType || 'Product Information',
+          description: cleanDesc,
+          // AI-extracted entries get medium/low based on whether the model
+          // returned clean structured fields. Anything sketchy → low so the
+          // user knows to eyeball it before exporting.
+          confidence: scoreAiConfidence(cleanTitle, cleanDesc, cleanType),
         });
       });
       consecutiveFailures = 0;
@@ -306,4 +346,4 @@ async function extractAllSubmittals(apiKey, sections, onProgress) {
   return results;
 }
 
-module.exports = { extractAllSubmittals };
+module.exports = { extractAllSubmittals, scoreAiConfidence };

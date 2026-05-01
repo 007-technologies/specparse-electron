@@ -7,6 +7,40 @@ let dragSrcRow = null;
 let queryHistory = [];
 let processingStartMs = 0;
 
+// CSI MasterFormat division names — covers the divisions Spencer's specs
+// actually touch. Used to humanize the "scanning Division 09" headline
+// during processing so the user sees real category names instead of
+// raw section numbers. (Pre-2004 Division 1-16 numbers map to the same
+// division concept as 2004+ 01-49 — close enough for status display.)
+const DIVISION_NAMES = {
+  '01': 'General Requirements',
+  '02': 'Existing Conditions',
+  '03': 'Concrete',
+  '04': 'Masonry',
+  '05': 'Metals',
+  '06': 'Wood, Plastics & Composites',
+  '07': 'Thermal & Moisture Protection',
+  '08': 'Openings (Doors, Windows, Glazing)',
+  '09': 'Finishes',
+  '10': 'Specialties',
+  '11': 'Equipment',
+  '12': 'Furnishings',
+  '13': 'Special Construction',
+  '14': 'Conveying Equipment',
+  '21': 'Fire Suppression',
+  '22': 'Plumbing',
+  '23': 'HVAC',
+  '25': 'Integrated Automation',
+  '26': 'Electrical',
+  '27': 'Communications',
+  '28': 'Electronic Safety & Security',
+  '31': 'Earthwork',
+  '32': 'Exterior Improvements',
+  '33': 'Utilities',
+  '34': 'Transportation',
+  '35': 'Waterway & Marine',
+};
+
 // ── Splash ────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const splash = document.getElementById('splashScreen');
@@ -30,6 +64,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (sidebarV) sidebarV.textContent = 'SpecParse ' + v;
       const aboutV = document.querySelector('.about-version');
       if (aboutV) aboutV.textContent = 'Version ' + (info.version || '1.0.0');
+      // Surface customer ID so Spencer (and any prospects he demos to) can
+      // see at a glance which build they're on. Reed sees the same string
+      // in admin telemetry — keeps support conversations grounded.
+      const aboutCustomer = document.getElementById('aboutCustomer');
+      if (aboutCustomer) {
+        aboutCustomer.textContent = info.customerId
+          ? 'Customer: ' + info.customerId
+          : '';
+      }
       if (info.hasEmbeddedKey) {
         // Hide the "Manage API Key" button in the About modal — Spencer never needs it.
         const apiBtn = document.getElementById('openApiKey');
@@ -37,6 +80,52 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   } catch (_) { /* non-fatal */ }
+});
+
+// Send-feedback button inside the About modal — opens the same overlay as
+// the sidebar Feedback link.
+document.getElementById('aboutSendFeedback')?.addEventListener('click', () => {
+  // Close About first so the two overlays don't stack visually.
+  const aboutOverlay = document.getElementById('aboutOverlay');
+  if (aboutOverlay) aboutOverlay.classList.add('d-none');
+  if (typeof openFeedbackOverlay === 'function') openFeedbackOverlay();
+});
+
+// Check-for-updates button — fires autoUpdater immediately rather than
+// waiting for the hourly background poll. Inline status feedback so the
+// user knows their click did something.
+document.getElementById('aboutCheckUpdates')?.addEventListener('click', async () => {
+  const btn = document.getElementById('aboutCheckUpdates');
+  const status = document.getElementById('aboutUpdateStatus');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  if (status) {
+    status.textContent = '';
+    status.className = 'about-update-status';
+  }
+  try {
+    if (!window.specparse || !window.specparse.checkForUpdates) {
+      throw new Error('Update check not available in this build.');
+    }
+    const result = await window.specparse.checkForUpdates();
+    if (status) {
+      if (result && result.success) {
+        status.textContent = result.message || 'Checked.';
+      } else {
+        status.textContent = (result && result.error) || 'Check failed.';
+        status.classList.add('err');
+      }
+    }
+  } catch (err) {
+    if (status) {
+      status.textContent = (err && err.message) || 'Check failed.';
+      status.classList.add('err');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Check for updates';
+  }
 });
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -89,6 +178,31 @@ document.getElementById('clearFile').addEventListener('click', () => {
   document.getElementById('generateBtn').disabled = true;
 });
 
+// Sample-spec discovery: ask the main process if assets/samples/sample-spec.pdf
+// is bundled with this build. If yes, surface "Try with a sample spec" beneath
+// the dropzone. Hidden if no sample bundled — no broken affordance.
+(async function setupSampleSpecAffordance() {
+  try {
+    if (!window.specparse || !window.specparse.getSampleSpec) return;
+    const result = await window.specparse.getSampleSpec();
+    if (!result || !result.available) return;
+    const hint = document.getElementById('sampleSpecHint');
+    const btn = document.getElementById('loadSampleSpec');
+    if (!hint || !btn) return;
+    hint.classList.remove('d-none');
+    btn.addEventListener('click', () => {
+      // Reuse the existing setFile flow — sample is just a regular file path
+      // from the renderer's perspective. The user still gets the project-name
+      // input and Generate button so they're walked through the full flow,
+      // not teleported to the result.
+      setFile(result.path, result.name || 'sample-spec.pdf');
+      if (window.specparse && window.specparse.trackEvent) {
+        window.specparse.trackEvent('sample_spec_loaded', { source: 'upload-screen' }).catch(() => {});
+      }
+    });
+  } catch (_) { /* fail silently — never block first-launch UX on this */ }
+})();
+
 // ── Generate ──────────────────────────────────────────────────────────────────
 document.getElementById('generateBtn').addEventListener('click', async () => {
   currentProjectName = document.getElementById('projectName').value.trim() || 'Submittal Log';
@@ -97,10 +211,29 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   processingStartMs = Date.now();
   setProgress(0, 'Preparing…', '', '');
   window.specparse.removeProgress();
-  window.specparse.onProgress(({ message, current, total }) => {
+  let lastDivision = null;
+  window.specparse.onProgress(({ message, current, total, found }) => {
     if (total > 0) {
       const pct = Math.min(100, Math.round(current / total * 100));
-      setProgress(pct, message, current + ' / ' + total + ' sections', formatEta(current, total));
+      // Pull the section number out of the message ("075423 - Title") so we
+      // can derive Division (first 2 digits) and show a richer headline.
+      const sectionNum = (message || '').split(' - ')[0] || '';
+      const division = sectionNum.slice(0, 2);
+      const divName = DIVISION_NAMES[division];
+      const headline = divName
+        ? 'Scanning Division ' + division + ' — ' + divName
+        : 'Scanning ' + (message || 'spec');
+      const subline = (typeof found === 'number')
+        ? found + ' ' + (found === 1 ? 'submittal' : 'submittals') +
+          ' found · ' + current + ' / ' + total + ' sections'
+        : current + ' / ' + total + ' sections';
+      setProgress(pct, headline, subline, formatEta(current, total));
+      // Activity log: only emit a line on division transitions (otherwise the
+      // log floods with one line per CSI subsection, which is just noise).
+      if (division && division !== lastDivision && divName) {
+        addLog('Entered Division ' + division + ' — ' + divName, false);
+        lastDivision = division;
+      }
       addLog(message, current > 0);
     } else {
       setProgress(current === 0 ? 5 : 95, message, '', '');
@@ -117,8 +250,22 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     if (window.specparse.saveProjectSections && currentSections.length) {
       window.specparse.saveProjectSections(currentProjectName, currentSections);
     }
-    document.getElementById('reviewSubtitle').textContent =
-      result.count + ' submittals found across ' + result.sections + ' sections. Edit below before exporting.';
+    // Tally confidence buckets so the subtitle gives the user an immediate
+    // sense of how much (if any) actually warrants their attention before export.
+    const lowCount = currentSubmittals.filter(s => s.confidence === 'low').length;
+    const medCount = currentSubmittals.filter(s => s.confidence === 'medium').length;
+    const flagged = lowCount + medCount;
+    let subtitle = result.count + ' submittals found across ' + result.sections + ' sections.';
+    if (flagged === 0) {
+      subtitle += ' Everything came from the curated dictionary — no AI guesses to second-guess.';
+    } else if (lowCount > 0) {
+      subtitle += ' ' + lowCount + ' AI-extracted ' + (lowCount === 1 ? 'row needs' : 'rows need') +
+                  ' a closer look (red dot). Edit below before exporting.';
+    } else {
+      subtitle += ' ' + medCount + ' AI-extracted ' + (medCount === 1 ? 'row' : 'rows') +
+                  ' (yellow dot) — worth a glance before exporting.';
+    }
+    document.getElementById('reviewSubtitle').textContent = subtitle;
     document.getElementById('navReview').classList.remove('disabled');
     showView('viewReview');
     updateReviewCount();
@@ -176,12 +323,24 @@ function buildReviewRow(s) {
   // so the export handler can include them in the Excel payload.
   const specSectionFull = s.specSection || '';
   const secNum = specSectionFull.split(' - ')[0] || s.sectionNumber || '';
+  // Confidence comes from aiExtractor: 'high' (dictionary), 'medium' (AI clean),
+  // or 'low' (AI sketchy). User-added rows have no confidence — treat as 'high'
+  // since the user typed it themselves. Legacy persisted rows from before this
+  // shipped also have no confidence — treat as 'high' (don't retroactively flag).
+  const confidence = s.confidence || 'high';
   tr.dataset.section = secNum;
   tr.dataset.specsection = specSectionFull;
   tr.dataset.description = s.description || '';
+  tr.dataset.confidence = confidence;
+  const dotTitle = {
+    high: 'High confidence — verified from SpecParse\'s curated section dictionary',
+    medium: 'Medium confidence — extracted by AI, fields look clean. Worth a glance.',
+    low: 'Low confidence — extracted by AI but the fields look incomplete or generic. Please review.',
+  }[confidence];
   tr.innerHTML =
     '<td><span class="drag-handle" title="Drag to reorder">&#8942;&#8942;</span></td>' +
     '<td><input type="checkbox" class="row-check" checked /></td>' +
+    '<td><span class="conf-dot conf-'+confidence+'" title="'+dotTitle+'"></span></td>' +
     '<td><span class="sec-badge">'+secNum+'</span></td>' +
     '<td><input class="review-input num-input" value="'+(s.submittalNumber||'')+'" placeholder="e.g. 075423-1" /></td>' +
     '<td><input class="review-input title-input" value="'+(s.title||'')+'" placeholder="Description..." /></td>' +
@@ -229,7 +388,36 @@ function buildReviewRow(s) {
 function updateReviewCount() {
   const total   = document.querySelectorAll('#reviewBody tr').length;
   const checked = document.querySelectorAll('#reviewBody tr:not(.excluded)').length;
-  document.getElementById('reviewCount').textContent = checked + ' of ' + total + ' submittals selected';
+  // Count confidence buckets across ALL rows (not just checked) so the user
+  // sees how many were AI-flagged regardless of their selection state.
+  const high = document.querySelectorAll('#reviewBody tr[data-confidence="high"]').length;
+  const med  = document.querySelectorAll('#reviewBody tr[data-confidence="medium"]').length;
+  const low  = document.querySelectorAll('#reviewBody tr[data-confidence="low"]').length;
+  const flagged = med + low;
+
+  let summary = checked + ' of ' + total + ' selected';
+  if (flagged > 0) {
+    summary += '  ·  <span class="conf-summary"><span class="conf-dot conf-high"></span>'+high+
+               ' <span class="conf-dot conf-medium"></span>'+med+
+               ' <span class="conf-dot conf-low"></span>'+low+'</span>';
+  }
+  const countEl = document.getElementById('reviewCount');
+  countEl.innerHTML = summary;
+
+  // Show/hide the "flagged only" toggle — pointless when nothing is flagged.
+  const flagBtn = document.getElementById('filterFlaggedBtn');
+  if (flagBtn) flagBtn.style.display = flagged > 0 ? '' : 'none';
+}
+
+// Filter the review table to show only rows that need a second look
+// (medium + low confidence). Toggling again restores all rows.
+function applyReviewFilter() {
+  const flaggedOnly = document.body.classList.contains('review-flagged-only');
+  document.querySelectorAll('#reviewBody tr').forEach(tr => {
+    const c = tr.dataset.confidence || 'high';
+    if (flaggedOnly && c === 'high') tr.classList.add('hidden-by-filter');
+    else tr.classList.remove('hidden-by-filter');
+  });
 }
 function syncMasterCheck() {
   const all  = document.querySelectorAll('#reviewBody .row-check');
@@ -270,6 +458,18 @@ document.getElementById('addRowBtn').addEventListener('click', () => {
   updateReviewCount();
 });
 
+// Toggle "Show flagged only" — collapses the table to just the medium+low rows.
+const filterFlaggedBtn = document.getElementById('filterFlaggedBtn');
+if (filterFlaggedBtn) {
+  filterFlaggedBtn.addEventListener('click', () => {
+    document.body.classList.toggle('review-flagged-only');
+    const on = document.body.classList.contains('review-flagged-only');
+    filterFlaggedBtn.textContent = on ? 'Show all' : 'Show flagged only';
+    filterFlaggedBtn.classList.toggle('btn-active', on);
+    applyReviewFilter();
+  });
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 document.getElementById('confirmBtn').addEventListener('click', async () => {
   const rows = [...document.querySelectorAll('#reviewBody tr:not(.excluded)')];
@@ -280,6 +480,9 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
     title:           r.querySelector('.title-input').value,
     type:            r.querySelector('.type-select').value,
     description:     r.dataset.description || '',
+    // Carry confidence through so reopened projects still show the flags.
+    // buildExcel ignores extra fields — Procore export is unaffected.
+    confidence:      r.dataset.confidence || 'high',
   }));
   if (!submittals.length) { alert('Select at least one submittal.'); return; }
   const btn = document.getElementById('confirmBtn');
@@ -567,5 +770,186 @@ document.addEventListener('keydown', function(e) {
     });
   }
 })();
+
+// ── First-launch onboarding overlay ──────────────────────────────────────────
+// Mirrors Cipher's pattern. Shown exactly once per machine — keyed off
+// localStorage.specparseOnboarded. Critical for prospects Spencer demos to who
+// open SpecParse with zero context.
+//
+// Mark as onboarded on display (not dismiss) so a force-quit during
+// onboarding doesn't replay the modal next launch.
+const SPECPARSE_ONBOARDED_KEY = 'specparseOnboarded';
+
+(async function maybeShowSpecParseOnboarding() {
+  try {
+    let onboarded = null;
+    try { onboarded = localStorage.getItem(SPECPARSE_ONBOARDED_KEY); } catch (_) { return; }
+    if (onboarded === '1') return;
+
+    const overlay = document.getElementById('onboardingOverlay');
+    const splash = document.getElementById('splashScreen');
+    if (!overlay) return;
+
+    // Wait for the splash to dismiss before showing onboarding — splash
+    // takes priority on first impression.
+    function showWhenReady() {
+      // Surface the sample-spec link inside the onboarding modal too.
+      try {
+        if (window.specparse && window.specparse.getSampleSpec) {
+          window.specparse.getSampleSpec().then((result) => {
+            const hint = document.getElementById('onboardingSampleHint');
+            const btn = document.getElementById('onboardingTrySample');
+            if (hint && result && result.available) {
+              hint.classList.remove('d-none');
+              if (btn) {
+                btn.addEventListener('click', () => {
+                  closeOnboarding();
+                  if (typeof setFile === 'function') setFile(result.path, result.name || 'sample-spec.pdf');
+                  if (window.specparse && window.specparse.trackEvent) {
+                    window.specparse.trackEvent('sample_spec_loaded', { source: 'onboarding-modal' }).catch(() => {});
+                  }
+                });
+              }
+            } else if (hint) {
+              hint.classList.add('d-none');
+            }
+          }).catch(() => { /* fail silently */ });
+        }
+      } catch (_) { /* ignore */ }
+
+      overlay.classList.remove('d-none');
+      try { localStorage.setItem(SPECPARSE_ONBOARDED_KEY, '1'); } catch (_) { /* */ }
+    }
+
+    // If splash is still up, wait for it to fade. Otherwise show now.
+    if (splash && splash.style.display !== 'none' && !splash.classList.contains('fade-out')) {
+      // Watch for the splash to dismiss. Show onboarding 300ms after fade so
+      // it doesn't feel jarring.
+      const continueBtn = document.getElementById('splashContinue');
+      if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+          setTimeout(showWhenReady, 1000);
+        }, { once: true });
+      } else {
+        // No splash continue button (already past) — just show.
+        setTimeout(showWhenReady, 100);
+      }
+    } else {
+      setTimeout(showWhenReady, 100);
+    }
+  } catch (_) { /* never block first launch */ }
+})();
+
+function closeOnboarding() {
+  const overlay = document.getElementById('onboardingOverlay');
+  if (overlay) overlay.classList.add('d-none');
+}
+document.getElementById('onboardingSkip')?.addEventListener('click', closeOnboarding);
+document.getElementById('onboardingStart')?.addEventListener('click', closeOnboarding);
+document.getElementById('onboardingOverlay')?.addEventListener('click', (e) => {
+  if (e.target.id === 'onboardingOverlay') closeOnboarding();
+});
+
+// ── In-app feedback modal ────────────────────────────────────────────────────
+// Mirrors Cipher's pattern. Sidebar Feedback link opens this; it POSTs to
+// /api/feedback via the main process IPC. Reed gets an email per send.
+let feedbackCategory = 'other';
+let feedbackSending = false;
+
+function openFeedbackOverlay() {
+  const overlay = document.getElementById('feedbackOverlay');
+  if (!overlay) return;
+  // Reset state on every open — don't carry typed text across opens.
+  document.getElementById('feedbackBody').value = '';
+  document.getElementById('feedbackEmail').value = '';
+  feedbackCategory = 'other';
+  document.querySelectorAll('#feedbackOverlay .feedback-cat').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.cat === 'other');
+  });
+  const status = document.getElementById('feedbackStatus');
+  if (status) {
+    status.classList.add('d-none');
+    status.textContent = '';
+    status.className = 'feedback-status d-none';
+  }
+  overlay.classList.remove('d-none');
+  setTimeout(() => document.getElementById('feedbackBody').focus(), 50);
+}
+
+function closeFeedbackOverlay() {
+  if (feedbackSending) return;  // don't yank mid-send
+  const overlay = document.getElementById('feedbackOverlay');
+  if (overlay) overlay.classList.add('d-none');
+}
+
+document.getElementById('sidebarFeedback')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  openFeedbackOverlay();
+});
+document.getElementById('feedbackClose')?.addEventListener('click', closeFeedbackOverlay);
+document.getElementById('feedbackCancel')?.addEventListener('click', closeFeedbackOverlay);
+document.getElementById('feedbackOverlay')?.addEventListener('click', (e) => {
+  if (e.target.id === 'feedbackOverlay') closeFeedbackOverlay();
+});
+
+// Category buttons — one always active, mirroring feedbackCategory.
+document.querySelectorAll('#feedbackOverlay .feedback-cat').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    feedbackCategory = btn.dataset.cat || 'other';
+    document.querySelectorAll('#feedbackOverlay .feedback-cat').forEach((b) => {
+      b.classList.toggle('is-active', b === btn);
+    });
+  });
+});
+
+document.getElementById('feedbackSend')?.addEventListener('click', async () => {
+  if (feedbackSending) return;
+  const sendBtn = document.getElementById('feedbackSend');
+  const status = document.getElementById('feedbackStatus');
+  const body = (document.getElementById('feedbackBody').value || '').trim();
+  const email = (document.getElementById('feedbackEmail').value || '').trim();
+
+  if (status) status.classList.remove('d-none');
+  if (!body) {
+    status.className = 'feedback-status err';
+    status.textContent = 'Please type a message before sending.';
+    return;
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    status.className = 'feedback-status err';
+    status.textContent = 'That email looks off — leave it blank or fix it.';
+    return;
+  }
+
+  feedbackSending = true;
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  status.className = 'feedback-status';
+  status.textContent = '';
+
+  try {
+    const res = await window.specparse.sendFeedback({
+      category: feedbackCategory,
+      body,
+      user_email: email || undefined,
+    });
+    if (res && res.success) {
+      status.className = 'feedback-status ok';
+      status.textContent = 'Sent! Reed gets a copy in his inbox right now. Thanks for taking the time.';
+      document.getElementById('feedbackBody').value = '';
+      setTimeout(() => { closeFeedbackOverlay(); }, 1800);
+    } else {
+      status.className = 'feedback-status err';
+      status.textContent = (res && res.error) || 'Couldn’t send right now. Try again in a moment.';
+    }
+  } catch (err) {
+    status.className = 'feedback-status err';
+    status.textContent = (err && err.message) || 'Couldn’t send right now. Try again in a moment.';
+  } finally {
+    feedbackSending = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send feedback';
+  }
+});
 
 
