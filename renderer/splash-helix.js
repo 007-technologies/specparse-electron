@@ -154,8 +154,12 @@
       targetX = 50 + Math.sin(t) * 30;
       targetY = 50 + Math.cos(t * 0.9) * 22;
     }
-    smoothX += (targetX - smoothX) * 0.05;
-    smoothY += (targetY - smoothY) * 0.05;
+    // Smoothing factor: 0.05 = slow follow, 0.15 = snappy. Bumped from 0.05
+    // because SpecParse's splash layout has more visual distance for the
+    // bend to travel than Cipher's, so the same fraction-per-frame
+    // smoothing felt laggy here while it felt real-time in Cipher.
+    smoothX += (targetX - smoothX) * 0.15;
+    smoothY += (targetY - smoothY) * 0.15;
     for (let i = 0; i < linePaths.length; i++) {
       linePaths[i].el.setAttribute('d', buildPath(linePaths[i], time));
     }
