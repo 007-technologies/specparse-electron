@@ -338,6 +338,25 @@
         <button class="btn btn-accent-solid btn-lg" id="downloadBtn">Save Excel file</button>
         <button class="btn btn-ghost" id="startOverBtn">Process another spec book</button>
       </div>
+
+      <!-- Procore import quick-reference. Output is column-for-column matched
+           to Procore's Submittals Import Template, so the file drops in
+           without a field-mapping step. -->
+      <div class="procore-hint">
+        <div class="procore-hint-head">
+          <span class="procore-hint-eyebrow">Procore-ready</span>
+          <span class="procore-hint-title">How to import this file into Procore</span>
+        </div>
+        <ol class="procore-hint-steps">
+          <li>In Procore, open your project &rarr; <strong>Submittals</strong> tool &rarr; <strong>Imports</strong> tab.</li>
+          <li>Click <strong>Upload</strong> and select the Excel file you just saved.</li>
+          <li>Fill in <strong>Submittal Manager</strong> for any rows you want imported (Procore requires this column).</li>
+          <li>Click <strong>Import</strong>. All other fields auto-populate from this file.</li>
+        </ol>
+        <div class="procore-hint-note">
+          File matches Procore&rsquo;s official Submittals Import Template column-for-column &mdash; no field mapping needed.
+        </div>
+      </div>
     </div>
 
     <!-- ============================================================
